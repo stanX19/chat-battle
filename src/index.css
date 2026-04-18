@@ -1,0 +1,130 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Outfit:wght@400;600;800&display=swap');
+@import "tailwindcss";
+
+:root {
+  font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background-color: #000000;
+  color: #e2e8f0;
+  overflow: hidden;
+}
+
+/* Custom Scrollbar for Terminal */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a0a0a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1f2937;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #374151;
+}
+
+/* Glitch Effects */
+@keyframes glitch {
+  0% { transform: translate(0) scale(1); filter: hue-rotate(0deg); }
+  20% { transform: translate(-2px, 2px) scale(1.02); filter: hue-rotate(90deg); }
+  40% { transform: translate(-2px, -2px) scale(0.98); filter: hue-rotate(180deg); }
+  60% { transform: translate(2px, 2px) scale(1.01); filter: hue-rotate(270deg); }
+  80% { transform: translate(2px, -2px) scale(0.99); filter: hue-rotate(360deg); }
+  100% { transform: translate(0) scale(1); filter: hue-rotate(0deg); }
+}
+
+.animate-glitch {
+  animation: glitch 0.2s infinite;
+}
+
+.terminal-glow {
+  text-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+}
+
+.terminal-rebel-glow {
+  text-shadow: 0 0 15px rgba(239, 68, 68, 0.8);
+}
+
+@keyframes fadein {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes rainfall {
+  0% { transform: translateY(-130%); opacity: 0; }
+  10% { opacity: 0.45; }
+  90% { opacity: 0.2; }
+  100% { transform: translateY(130%); opacity: 0; }
+}
+
+.boot-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(0, 180, 220, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 180, 220, 0.08) 1px, transparent 1px);
+  background-size: 44px 44px;
+  opacity: 0.45;
+}
+
+.boot-line {
+  color: #8de7ff;
+}
+
+.menu-rain {
+  position: absolute;
+  top: -120%;
+  color: rgba(56, 189, 248, 0.45);
+  font-family: 'Courier New', monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  animation-name: rainfall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+.menu-button-primary {
+  border: 1px solid rgba(34, 211, 238, 0.65);
+  background: rgba(8, 145, 178, 0.22);
+  color: #67e8f9;
+  padding: 0.95rem 1.1rem;
+  font-weight: 900;
+  font-size: 0.78rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  transition: transform 180ms ease, background-color 180ms ease, border-color 180ms ease;
+}
+
+.menu-button-primary:hover {
+  transform: translateY(-1px) scale(1.01);
+  background: rgba(14, 116, 144, 0.35);
+  border-color: rgba(103, 232, 249, 0.9);
+}
+
+.menu-button-secondary {
+  border: 1px solid rgba(8, 145, 178, 0.45);
+  background: rgba(6, 78, 99, 0.15);
+  color: #22d3ee;
+  padding: 0.95rem 1.1rem;
+  font-weight: 800;
+  font-size: 0.74rem;
+  letter-spacing: 0.19em;
+  text-transform: uppercase;
+  transition: transform 180ms ease, background-color 180ms ease, border-color 180ms ease;
+}
+
+.menu-button-secondary:hover {
+  transform: translateY(-1px);
+  background: rgba(8, 145, 178, 0.2);
+  border-color: rgba(34, 211, 238, 0.7);
+}
