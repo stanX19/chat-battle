@@ -446,7 +446,7 @@ export function processAttack(state) {
      // Rapid-fire blade support
      if (h.materials && h.materials.length > 0 && (!h.bladeAttackCd || h.bladeAttackCd <= 0)) {
         launchBlade(h, state, target);
-        h.bladeAttackCd = 10;
+        h.bladeAttackCd = SPACE_ATTACK_CD;
      }
   } else {
      h.order = 'AWAIT';
@@ -473,8 +473,9 @@ export function resolveCombatTicks(state, isWallSolid, callbacks, gameMode) {
      h.attackCd = SPACE_ATTACK_CD;
      
      // Manual blade support
-     if (h.materials && h.materials.length > 0) {
+     if (h.materials && h.materials.length > 0 && h.bladeAttackCd <= 0) {
         launchBlade(h, state);
+        h.bladeAttackCd = SPACE_ATTACK_CD;
      }
      
      // Random chance for sidekick to mock manual effort

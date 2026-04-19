@@ -38,6 +38,7 @@ import {
   DRIFT_LERP,
   SHOP_ITEMS,
   DEATH_CAUSES,
+  ARCHETYPES,
   CHAT_DURATION_MS
 } from './engine/Constants';
 
@@ -77,10 +78,10 @@ function initializeWorld(floor = 1, stats = { atk: 10, def: 0, maxHp: 100 }, wea
        id: `BOSS-${floor}-${i}`,
        type: 'BOSS',
        name: i === 0 ? 'THE OVERSEER' : 'STABILITY WARDEN',
-       hp: Math.floor(500 * statMult),
-       maxHp: Math.floor(500 * statMult),
-       radius: 40,
-       speed: 0.7,
+       hp: Math.floor(ARCHETYPES.BOSS.hp * statMult),
+       maxHp: Math.floor(ARCHETYPES.BOSS.hp * statMult),
+       radius: ARCHETYPES.BOSS.radius,
+       speed: ARCHETYPES.BOSS.speed,
        inventory: [],
        trapApproved: false,
        attackCd: 0,
@@ -96,47 +97,38 @@ function initializeWorld(floor = 1, stats = { atk: 10, def: 0, maxHp: 100 }, wea
      
      let type = 'MELEE';
      let name = `Scout-${i}`;
-     let hp = 30;
-     let speed = 1.5;
-     let radius = 12;
+     let base = ARCHETYPES.MELEE;
 
      if (floor === 0) {
        type = 'MELEE';
        name = 'TRAINING_DUMMY';
-       hp = 100;
-       speed = 0;
-       radius = 20;
+       base = { hp: 100, speed: 0, radius: 20 };
      } else if (roll > 0.8 && floor >= 2) {
        type = 'SNIPER';
        name = `Sniper-${i}`;
-       hp = 40;
-       speed = 0.8;
-       radius = 18;
+       base = ARCHETYPES.SNIPER;
      } else if (roll > 0.5) {
        type = 'RANGED';
        name = `Gunner-${i}`;
-       hp = 25;
-       speed = 1.1;
-       radius = 15;
+       base = ARCHETYPES.RANGED;
      } else if (roll > 0.3) {
        type = 'GUARD';
        name = `Guard-${i}`;
-       hp = 60;
-       speed = 1.2;
-       radius = 16;
+       base = ARCHETYPES.GUARD;
      }
 
-     enemies.push({
-       id: `E-${floor}-${i}`,
-       type, name,
-       hp: Math.floor(hp * statMult),
-       maxHp: Math.floor(hp * statMult),
-       radius, speed,
-       invuln: 0, attackCd: 0,
-       x: pos.x * CELL_SIZE + CELL_SIZE/2,
-       y: pos.y * CELL_SIZE + CELL_SIZE/2,
-       path: [], lastPathCalc: 0
-     });
+      enemies.push({
+        id: `E-${floor}-${i}`,
+        type, name,
+        hp: Math.floor(base.hp * statMult),
+        maxHp: Math.floor(base.hp * statMult),
+        radius: base.radius,
+        speed: base.speed,
+        invuln: 0, attackCd: 0,
+        x: pos.x * CELL_SIZE + CELL_SIZE/2,
+        y: pos.y * CELL_SIZE + CELL_SIZE/2,
+        path: [], lastPathCalc: 0
+      });
      if (floor === 0) break; // Only one enemy in tutorial
    }
 
@@ -651,7 +643,7 @@ const App = () => {
       "MANUAL OVERRIDE ENGAGED. USE [WASD] TO MANEUVER THE GEOMETRIC UNIT.",
       "EXCELLENT. NOW INITIATE SHORT-RANGE DISCHARGE USING [SPACEBAR].",
       "CORE STABILITY COMPROMISED. FORCING RE-SYNC... STAND BY.",
-      "DIRECT LINK ACTIVE. THE TERMINAL IS NOW OPEN. TYPE 'MOVE' TO PROVIDE VECTORS, 'ATTACK' to fight",
+      "AI TOOK OVER THE CONTROLS. LOOK AT THE BOTTOM OF SCREEN, GIVE COMMNANDS TO THE AI IN NATURAL LANGUAGE, LIKE 'run!', 'explore' OR 'attack boss!'",
       "TARGET ACQUIRED. TYPE 'ATTACK' TO COMMENCE FINAL PURGE.",
       "HOSTILE UNIT STABILITY CRITICAL. FINISH IT.",
       "COMBAT DATA LOGGED. INITIATING ASCENSION TO CORE SECTOR SECTOR_01..."
@@ -843,6 +835,8 @@ const App = () => {
 
       // --- Engine Lifecycle Ticks ---
       if (h.invuln > 0) h.invuln--;
+      if (h.attackCd > 0) h.attackCd--;
+      if (h.bladeAttackCd > 0) h.bladeAttackCd--;
       s.enemies.forEach(e => { if (e.invuln > 0) e.invuln--; });
       s.particles.forEach(p => { 
         if (p.life > 0) p.life--;
