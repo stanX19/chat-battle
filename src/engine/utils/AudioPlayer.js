@@ -1,10 +1,10 @@
 import { Howl, Howler } from 'howler';
 
-const SOUND_ROOT = '../../../assets/sounds/kenney_sci-fi-sounds/Audio';
-const JAM_SOUND_ROOT = '../../../assets/sounds/my-sound';
+const SOUND_ROOT = '/assets/sounds/kenney_sci-fi-sounds/Audio';
+const JAM_SOUND_ROOT = '/assets/sounds/my-sound';
 
-const toAssetUrl = (file) => new URL(`${SOUND_ROOT}/${file}`, import.meta.url).href;
-const toJamAssetUrl = (file) => new URL(`${JAM_SOUND_ROOT}/${file}`, import.meta.url).href;
+const toAssetUrl = (file) => `${SOUND_ROOT}/${file}`;
+const toJamAssetUrl = (file) => `${JAM_SOUND_ROOT}/${file}`;
 
 class AudioPlayer {
   constructor() {
@@ -191,9 +191,12 @@ class AudioPlayer {
     const def = this.soundRegistry[id];
     if (!def) return null;
 
+    const extension = def.src.split('.').pop();
+
     const howl = new Howl({
       src: [def.src],
       preload: true,
+      format: [extension],
       volume: (def.baseVolume ?? 1) * this.sfxVolume,
       pool: 8
     });
