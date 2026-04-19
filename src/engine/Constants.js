@@ -79,7 +79,7 @@ export const ARCHETYPES = {
   },
   BOSS: {
     type: 'BOSS',
-    hp: 5000,
+    hp: 4000,
     speed: 0.7,
     radius: 40,
     vision: 1200
