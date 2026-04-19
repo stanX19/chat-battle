@@ -188,69 +188,83 @@ export function processExplore(state) {
   const [hx, hy] = getGridPos(h.pos.x, h.pos.y);
 
   if (!h.targetPos || h.path.length === 0 || Date.now() - h.lastPathCalc > 1000) {
-     // PRIORITIZE MATERIALS
-     const visibleMaterials = state.items.filter(i => i.type === 'Material');
-     if (visibleMaterials.length > 0) {
-        const best = visibleMaterials.sort((a,b) => Math.hypot(a.x-h.pos.x, a.y-h.pos.y) - Math.hypot(b.x-h.pos.x, b.y-h.pos.y))[0];
-        h.targetPos = { x: best.x, y: best.y };
-        h.path = calculateAStarPath(state.grid, [hx, hy], getGridPos(best.x, best.y), CELL_SIZE);
-        h.lastPathCalc = Date.now();
-        return;
+     const [hx, hy] = getGridPos(h.pos.x, h.pos.y);
+
+     // PRIORITIZE MATERIALS (Reachable ones only)
+     const materials = state.items
+        .filter(i => i.type === 'Material')
+        .sort((a,b) => Math.hypot(a.x-h.pos.x, a.y-h.pos.y) - Math.hypot(b.x-h.pos.x, b.y-h.pos.y));
+
+     for (const best of materials) {
+        const path = calculateAStarPath(state.grid, [hx, hy], getGridPos(best.x, best.y), CELL_SIZE);
+        if (path.length > 0) {
+           h.targetPos = { x: best.x, y: best.y };
+           h.path = path;
+           h.lastPathCalc = Date.now();
+           return;
+        }
      }
 
+     // BFS for NEAREST UNVISITED TILE (Ignore current tile)
      let queue = [[hx, hy]];
      let visitedBfs = new Set();
      let found = null;
      
+     visitedBfs.add(`${hx},${hy}`); // Don't pick current tile
+
      while(queue.length > 0) {
         const [cx, cy] = queue.shift();
-        if (cx < 0 || cy < 0 || cx >= state.grid[0].length || cy >= state.grid.length) continue;
-        if (state.grid[cy][cx] === 1) continue;
+        
+        // Check neighbors
+        const neighbors = [[cx, cy-1], [cx+1, cy], [cx, cy+1], [cx-1, cy]];
+        for (const [nx, ny] of neighbors) {
+           if (nx < 0 || ny < 0 || nx >= state.grid[0].length || ny >= state.grid.length) continue;
+           if (state.grid[ny][nx] === 1) continue; // Wall
 
-        const hash = `${cx},${cy}`;
-        if (visitedBfs.has(hash)) continue;
-        visitedBfs.add(hash);
+           const hash = `${nx},${ny}`;
+           if (visitedBfs.has(hash)) continue;
+           visitedBfs.add(hash);
 
-        if (!state.visited[cy][cx]) {
-           found = [cx, cy];
-           break;
+           if (!state.visited[ny][nx]) {
+              found = [nx, ny];
+              break;
+           }
+           queue.push([nx, ny]);
         }
-        queue.push([cx, cy-1], [cx+1, cy], [cx, cy+1], [cx-1, cy]);
+        if (found) break;
      }
 
      if (found) {
-        h.path = calculateAStarPath(state.grid, [hx, hy], found, CELL_SIZE);
-        h.lastPathCalc = Date.now();
-        h.targetPos = { x: found[0] * CELL_SIZE + CELL_SIZE/2, y: found[1] * CELL_SIZE + CELL_SIZE/2 }; 
-     } else {
-            const fallbackOffsets = [
-               [6, 0],
-               [-6, 0],
-               [0, 6],
-               [0, -6],
-               [4, 4],
-               [-4, 4],
-               [4, -4],
-               [-4, -4]
-            ];
-
-            for (const [dx, dy] of fallbackOffsets) {
-               const fx = Math.max(0, Math.min(state.grid[0].length - 1, hx + dx));
-               const fy = Math.max(0, Math.min(state.grid.length - 1, hy + dy));
-               if (state.grid[fy][fx] === 1) continue;
-
-               const patrolPath = calculateAStarPath(state.grid, [hx, hy], [fx, fy], CELL_SIZE);
-               if (patrolPath.length > 0) {
-                  h.path = patrolPath;
-                  h.lastPathCalc = Date.now();
-                  h.targetPos = { x: fx * CELL_SIZE + CELL_SIZE / 2, y: fy * CELL_SIZE + CELL_SIZE / 2 };
-                  return;
-               }
-            }
-
-            h.order = 'AWAIT';
-            h.path = [];
+        const path = calculateAStarPath(state.grid, [hx, hy], found, CELL_SIZE);
+        if (path.length > 0) {
+           h.path = path;
+           h.lastPathCalc = Date.now();
+           h.targetPos = { x: found[0] * CELL_SIZE + CELL_SIZE/2, y: found[1] * CELL_SIZE + CELL_SIZE/2 }; 
+           return;
+        }
      }
+
+     // FALLBACK: PATROL OFFSET
+     const fallbackOffsets = [
+        [6, 0], [-6, 0], [0, 6], [0, -6], [4, 4], [-4, 4], [4, -4], [-4, -4]
+     ];
+
+     for (const [dx, dy] of fallbackOffsets) {
+        const fx = Math.max(0, Math.min(state.grid[0].length - 1, hx + dx));
+        const fy = Math.max(0, Math.min(state.grid.length - 1, hy + dy));
+        if (state.grid[fy][fx] === 1) continue;
+
+        const patrolPath = calculateAStarPath(state.grid, [hx, hy], [fx, fy], CELL_SIZE);
+        if (patrolPath.length > 0) {
+           h.path = patrolPath;
+           h.lastPathCalc = Date.now();
+           h.targetPos = { x: fx * CELL_SIZE + CELL_SIZE / 2, y: fy * CELL_SIZE + CELL_SIZE / 2 };
+           return;
+        }
+     }
+
+     h.order = 'AWAIT';
+     h.path = [];
   }
 
   if (h.path && h.path.length > 0) {

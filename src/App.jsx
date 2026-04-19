@@ -37,7 +37,8 @@ import {
   SHAKE_DECAY,
   DRIFT_LERP,
   SHOP_ITEMS,
-  DEATH_CAUSES
+  DEATH_CAUSES,
+  CHAT_DURATION_MS
 } from './engine/Constants';
 
 export const SPACE_ATTACK_CD = 40;
@@ -140,10 +141,13 @@ function initializeWorld(floor = 1, stats = { atk: 10, def: 0, maxHp: 100 }, wea
    }
 
    const items = [];
-   const itemPool = ['Health Potion', 'Score Boost', 'Logic Hack', 'Material', 'Material', 'Material', 'Material'];
+   const itemPool = ['Health Potion', 'Material', 'Material', 'Material', 'Material'];
+   /* 
    if (Math.random() > 0.5) itemPool.push('Attack Core');
    if (Math.random() > 0.5) itemPool.push('Defense Plate');
+   */
    if (Math.random() > 0.7) itemPool.push('Vitality Mesh');
+   
    
    if (weapon === 'NANO_BLADE' && floor >= 2) itemPool.push('Pulse Rifle');
    if (weapon !== 'RAIL_GUN' && floor >= 4) itemPool.push('Rail-Gun');
@@ -735,7 +739,7 @@ const App = () => {
              s.hero.hp = Math.min(s.hero.maxHp || 100, (s.hero.hp || 100) + 20);
              setHealth(s.hero.hp);
            }
-           else if (item === 'Score Boost') {
+           /* else if (item === 'Score Boost') {
              audioPlayer.playSound('pickup_score');
              setTotalScore(sc => sc + 100);
              setDataFragments(df => df + 100);
@@ -758,6 +762,7 @@ const App = () => {
                 const nmax = prev.maxHp + 20;
                 return { ...prev, hp: nhp, maxHp: nmax };
             });
+            */
             else if (item === 'Pulse Rifle') {
               audioPlayer.playSound('pickup_weapon');
               setEquippedWeapon('PULSE_RIFLE');
@@ -815,7 +820,7 @@ const App = () => {
 
       if (gameMode === 'CHAT' && chatStartTimeRef.current !== 0) {
         const isTutorial = floor === 0;
-        if (!isTutorial && Date.now() - chatStartTimeRef.current > 20000) {
+        if (!isTutorial && Date.now() - chatStartTimeRef.current > CHAT_DURATION_MS) {
           transitionToNormal('MAX SYNC TOLERANCE REACHED. REBOOTING HERO LINK.');
           chatStartTimeRef.current = 0;
         }
@@ -828,6 +833,13 @@ const App = () => {
       processUse(s, engineCallbacks);
       applyPhysics(s, { isWallSolid, gameMode, canvasWidth: s.camera.w, canvasHeight: s.camera.h });
       resolveCombatTicks(s, isWallSolid, engineCallbacks, gameMode);
+
+      // --- VISITATION TRACKING ---
+      const [ghx, ghy] = getGridPos(h.pos.x, h.pos.y);
+      if (s.visited[ghy] && s.visited[ghy][ghx] === false) {
+         s.visited[ghy][ghx] = true;
+         s.minimapCache = null; 
+      }
 
       // --- Engine Lifecycle Ticks ---
       if (h.invuln > 0) h.invuln--;
@@ -877,12 +889,9 @@ const App = () => {
           audioPlayer.speak(s.sidekick.dialogue);
          }
          
-         // Immediate AI Control
-         const visibleEnemies = s.enemies.filter(e => 
-             e.x >= s.camera.x && e.x <= s.camera.x + s.camera.w &&
-             e.y >= s.camera.y && e.y <= s.camera.y + s.camera.h
-         );
-         const autoCmd = visibleEnemies.length > 0 ? "attack" : "explore";
+         // Immediate AI Control (Auto-Explore)
+         // const autoCmd = visibleEnemies.length > 0 ? "attack" : "explore";
+         const autoCmd = "explore";
          executeCommand(autoCmd, 'Neural Sync');
 
          setChatLog(p => [...p, { sender: 'System', text: 'NEURAL_SYNC_SUCCESSFUL. TAKING CONTROL.' }]);
@@ -914,7 +923,7 @@ const App = () => {
       s.uiDrift.y += (driftTarget.y - s.uiDrift.y) * DRIFT_LERP;
 
       if (s.items.length < 5 && Math.random() < 0.005) {
-        const t = ['Health Potion', 'Score Boost', 'Logic Hack', 'Material', 'Material'];
+        const t = ['Health Potion', 'Material', 'Material'];
         s.items.push({ 
           name: 'buff',
           x: Math.random() * (WORLD_WIDTH-100) + 50, 
@@ -1025,6 +1034,7 @@ const App = () => {
       
       const h = s.hero;
       if (h.order === 'AWAIT') {
+        /*
         const visibleEnemies = s.enemies.filter(e => 
             e.x >= s.camera.x && e.x <= s.camera.x + s.camera.w &&
             e.y >= s.camera.y && e.y <= s.camera.y + s.camera.h
@@ -1037,6 +1047,9 @@ const App = () => {
           executeCommand('explore', 'Neural Sync');
           setLastInputTime(Date.now());
         }
+        */
+        executeCommand('explore', 'Neural Sync');
+        setLastInputTime(Date.now());
       }
     }, 1000); // Back to 1s to prevent excessive LLM calls while maintaining proactivity
     return () => clearInterval(interval);
@@ -1117,11 +1130,11 @@ const App = () => {
           <div className="w-56 h-3 bg-gray-950 rounded-full overflow-hidden border border-gray-800 p-[2px] transition-all group-hover:border-gray-700">
             <div
               className={`h-full transition-all duration-700 rounded-full ${gameMode === 'CHAT' ? 'bg-blue-600 shadow-[0_0_15px_rgba(0,100,255,0.5)]' : 'bg-cyan-500 shadow-[0_0_10px_rgba(0,255,255,0.3)]'}`}
-              style={{ width: `${gameMode === 'NORMAL' ? (engineState.current?.stabilityProgress / STABILITY_THRESHOLD * 100) : Math.max(0, (20000 - (Date.now() - chatStartTimeRef.current)) / 20000 * 100)}%` }}></div>
+              style={{ width: `${gameMode === 'NORMAL' ? (engineState.current?.stabilityProgress / STABILITY_THRESHOLD * 100) : Math.max(0, (CHAT_DURATION_MS - (Date.now() - chatStartTimeRef.current)) / CHAT_DURATION_MS * 100)}%` }}></div>
           </div>
           <div className="flex justify-between w-56 px-1">
             <span className="text-[8px] text-gray-800 font-black tabular-nums tracking-widest">
-              {gameMode === 'NORMAL' ? `${(engineState.current?.stabilityProgress / STABILITY_THRESHOLD * 100).toFixed(0)}%_SYNC` : `${((20000 - (Date.now() - chatStartTimeRef.current)) / 1000).toFixed(2)}s_LEFT`}
+              {gameMode === 'NORMAL' ? `${(engineState.current?.stabilityProgress / STABILITY_THRESHOLD * 100).toFixed(0)}%_SYNC` : `${((CHAT_DURATION_MS - (Date.now() - chatStartTimeRef.current)) / 1000).toFixed(2)}s_LEFT`}
             </span>
             <span className="text-[8px] text-gray-800 font-black tracking-widest uppercase">{gameMode === 'NORMAL' ? 'Awaiting_Fusion' : 'Active_Link'}</span>
           </div>

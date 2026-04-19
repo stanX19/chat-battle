@@ -140,6 +140,8 @@ The Operator specified a vector. You may also use: ${directionTargets}.` : ""}
 - Player: "Yield control" -> {"target": "EXIT_CHAT", "dialogue": "Manual override recognized. Disconnecting."}
 - Player: "Go fight" -> {"target": "attack", "dialogue": "Aggressive vectors locked."}
 - Player: "Get some dots" -> {"target": "explore", "dialogue": "Resource acquisition prioritized."}
+- Player: "Move" -> {"target": "explore", "dialogue": "Resource acquisition prioritized."}
+- Player: "Run!" -> {"target": "safety", "dialogue": "You got a point, tactical retreat!"}
 ${directions.length > 0 ? `- Player: "Go ${directions[0]}" -> {"target": "${directions[0]}", "dialogue": "Adjusting movement vectors."}` : ""}
 
 [Visible Entities]: ${targetStr}

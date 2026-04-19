@@ -12,6 +12,7 @@ export const DRIFT_LERP = 0.12;
 
 // WASD & SIDEKICK MODES
 export const STABILITY_THRESHOLD = 5000; // Distance to switch mode
+export const CHAT_DURATION_MS = 40000; 
 export const WASD_ACCELERATION = 0.8;
 export const SPACE_ATTACK_CD = 40;
 
@@ -78,7 +79,7 @@ export const ARCHETYPES = {
   },
   BOSS: {
     type: 'BOSS',
-    hp: 500,
+    hp: 1000,
     speed: 0.7,
     radius: 40,
     vision: 1200
