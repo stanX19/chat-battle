@@ -1,3 +1,28 @@
+export function generateTutorialLayout() {
+  const width = 12;
+  const height = 10;
+  // Box with a simple corridor
+  const grid = Array.from({ length: height }, () => Array(width).fill(1));
+  
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      grid[y][x] = 0;
+    }
+  }
+
+  return {
+    grid,
+    furthestCell: { x: 8, y: 5 },
+    availableFloors: [
+      { x: 3, y: 3 }, { x: 4, y: 3 }, { x: 5, y: 3 },
+      { x: 3, y: 4 }, { x: 4, y: 4 }, { x: 5, y: 4 },
+      { x: 3, y: 5 }, { x: 4, y: 5 }, { x: 5, y: 5 }
+    ],
+    width,
+    height
+  };
+}
+
 export function generateDungeon(width = 20, height = 16) {
   // Initialize all walls
   const grid = Array.from({ length: height }, () => Array(width).fill(1));

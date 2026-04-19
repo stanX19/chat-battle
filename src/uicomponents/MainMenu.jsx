@@ -48,7 +48,7 @@ const MainMenu = ({ onStart, onLeaderboard, onSettings }) => {
           className="mb-3 text-5xl font-black tracking-[0.15em] text-white md:text-7xl"
           style={{ textShadow: '0 0 50px rgba(0,200,255,0.25)' }}
         >
-          PROMPT_OVERRIDE
+          CHAT BATTLE
         </h1>
 
         <p className="mb-10 text-[10px] uppercase tracking-[0.3em] text-gray-600">

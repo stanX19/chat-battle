@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { parseCommand } from './aiBrain';
-import { generateDungeon } from './mapGenerator';
+import { generateDungeon, generateTutorialLayout } from './mapGenerator';
 import MainMenu from './uicomponents/MainMenu';
 import Shop from './uicomponents/Shop';
 import Leaderboard from './uicomponents/Leaderboard';
 import FloorTitle from './uicomponents/FloorTitle';
+import Subtitles from './uicomponents/Subtitles';
 import { loadLeaderboard, saveLeaderboardEntry, loadSettings, saveSettings } from './engine/LeaderboardManager';
 import BootSequence from './uicomponents/BootSequence';
 import { 
@@ -50,7 +51,8 @@ const DEFAULT_SETTINGS = {
 };
 
 function initializeWorld(floor = 1, stats = { atk: 10, def: 0, maxHp: 100 }, weapon = 'NANO_BLADE') {
-   const { grid, furthestCell, availableFloors, width, height } = generateDungeon(20, 16);
+   const dungeon = floor === 0 ? generateTutorialLayout() : generateDungeon(20, 16);
+   const { grid, furthestCell, availableFloors, width, height } = dungeon;
    
    const walls = [];
    for(let y=0; y<height; y++){
@@ -86,7 +88,7 @@ function initializeWorld(floor = 1, stats = { atk: 10, def: 0, maxHp: 100 }, wea
      });
    }
 
-   for (let i = 0; i < enemyCount; i++) {
+    for (let i = 0; i < enemyCount; i++) {
      if (availableFloors.length === 0) break;
      const pos = availableFloors.pop();
      const roll = Math.random();
@@ -97,7 +99,13 @@ function initializeWorld(floor = 1, stats = { atk: 10, def: 0, maxHp: 100 }, wea
      let speed = 1.5;
      let radius = 12;
 
-     if (roll > 0.8 && floor >= 2) {
+     if (floor === 0) {
+       type = 'MELEE';
+       name = 'TRAINING_DUMMY';
+       hp = 100;
+       speed = 0;
+       radius = 20;
+     } else if (roll > 0.8 && floor >= 2) {
        type = 'SNIPER';
        name = `Sniper-${i}`;
        hp = 40;
@@ -128,6 +136,7 @@ function initializeWorld(floor = 1, stats = { atk: 10, def: 0, maxHp: 100 }, wea
        y: pos.y * CELL_SIZE + CELL_SIZE/2,
        path: [], lastPathCalc: 0
      });
+     if (floor === 0) break; // Only one enemy in tutorial
    }
 
    const items = [];
@@ -229,6 +238,7 @@ const App = () => {
   const [leaderboardRows, setLeaderboardRows] = useState([]);
   const [operatorName, setOperatorName] = useState('OPERATOR_ID');
   const [deathCause, setDeathCause] = useState(DEATH_CAUSES.NEURAL);
+  const [tutStep, setTutStep] = useState(0);
 
   const canvasRef = useRef(null);
   const inputRef = useRef(null);
@@ -239,8 +249,9 @@ const App = () => {
 
   const startNewRun = () => {
     const baseStats = { atk: 10, def: 0, maxHp: 100, hp: 100 };
-    setFloor(1);
-    setPendingFloor(2);
+    setFloor(0);
+    setTutStep(0);
+    setPendingFloor(1);
     setPersistentStats(baseStats);
     setEquippedWeapon('NANO_BLADE');
     setSpeedBonus(0);
@@ -259,7 +270,7 @@ const App = () => {
       { sender: 'AI', text: 'Geometric Unit #404 reporting. Operator, I require tactical vectors. Try "move" or "attack".' }
     ]);
     chatStartTimeRef.current = 0;
-    engineState.current = initializeWorld(1, baseStats, 'NANO_BLADE');
+    engineState.current = initializeWorld(0, baseStats, 'NANO_BLADE');
     setAppState(APP_STATES.PLAYING);
   };
 
@@ -356,18 +367,30 @@ const App = () => {
   };
 
   const goToNextFloor = () => {
-      const s = engineState.current;
-      if (!s) return;
-      const nextFloor = floor + 1;
-      const finalStats = { 
-        ...persistentStats, 
-        hp: Math.min(persistentStats.maxHp, s.hero.hp + Math.floor(persistentStats.maxHp * 0.25))
-      };
-      setGameMode('NORMAL');
-      setGlitchValue(0);
-      setIsGameWon(false);
-      beginFloorTransition(nextFloor, finalStats);
-      setChatLog(p => [...p, { sender: 'System', text: `--- FLOOR ${nextFloor} LINK PREPARED ---` }]);
+    const s = engineState.current;
+    if (!s) return;
+
+    if (floor === 0) {
+      setFloor(1);
+      const baseStats = { atk: 10, def: 0, maxHp: 100, hp: 100 };
+      setPersistentStats(baseStats);
+      setHealth(baseStats.hp);
+      engineState.current = initializeWorld(1, baseStats, equippedWeapon);
+      setAppState(APP_STATES.PLAYING);
+      setChatLog(p => [...p, { sender: 'System', text: '--- TUTORIAL COMPLETE. ASCENDING TO CORE SECTOR ---' }]);
+      return;
+    }
+
+    const nextFloor = floor + 1;
+    const finalStats = { 
+      ...persistentStats, 
+      hp: Math.min(persistentStats.maxHp, s.hero.hp + Math.floor(persistentStats.maxHp * 0.25))
+    };
+    setGameMode('NORMAL');
+    setGlitchValue(0);
+    setIsGameWon(false);
+    beginFloorTransition(nextFloor, finalStats);
+    setChatLog(p => [...p, { sender: 'System', text: `--- FLOOR ${nextFloor} LINK PREPARED ---` }]);
   };
 
   const handleBuy = (itemId) => {
@@ -570,6 +593,68 @@ const App = () => {
     executeCommand(inputText, 'Player');
   };
 
+  const skipTutorial = () => {
+    const baseStats = { atk: 10, def: 0, maxHp: 100, hp: 100 };
+    setPersistentStats(baseStats);
+    setFloor(1);
+    setAppState(APP_STATES.PLAYING);
+    engineState.current = initializeWorld(1, baseStats, equippedWeapon);
+    setChatLog(p => [...p, { sender: 'System', text: '--- TUTORIAL SKIPPED. DIRECT ENTRY GRANTED. ---' }]);
+  };
+
+  // --- REACTIVE TUTORIAL LOGIC (2 PHASES) ---
+  useEffect(() => {
+    if (floor !== 0 || appState !== APP_STATES.PLAYING) return;
+    
+    const interval = setInterval(() => {
+      const s = engineState.current;
+      if (!s) return;
+      
+      const hero = s.hero;
+
+      if (tutStep === 0) {
+        setTutStep(1); // Auto-advance from welcome
+      } 
+      // PHASE 1: MANUAL (WASD + SPACE)
+      else if (tutStep === 1 && (hero.vel.x !== 0 || hero.vel.y !== 0)) {
+        setTutStep(2);
+      } else if (tutStep === 2 && hero.attackCd > 0 && gameMode === 'NORMAL') {
+        setTutStep(3);
+        // Trigger Transition to Phase 2 after a short delay
+        setTimeout(() => {
+          setGameMode('CHAT');
+          chatStartTimeRef.current = Date.now();
+          setTutStep(4);
+          if (inputRef.current) inputRef.current.focus();
+        }, 3000);
+      } 
+      // PHASE 2: CHAT (Typed 'move' + 'attack')
+      else if (tutStep === 4 && hero.order === 'MOVE') {
+        setTutStep(5);
+      } else if (tutStep === 5 && hero.order === 'ATTACK') {
+        setTutStep(6);
+      } else if (tutStep === 6 && s.enemies.length === 0) {
+        setTutStep(7);
+      }
+    }, 500);
+    
+    return () => clearInterval(interval);
+  }, [floor, appState, tutStep, gameMode]);
+
+  const getTutorialMessage = () => {
+    const messages = [
+      "OPERATOR, INITIATING NEURAL SYNC... [SUCCESS]",
+      "MANUAL OVERRIDE ENGAGED. USE [WASD] TO MANEUVER THE GEOMETRIC UNIT.",
+      "EXCELLENT. NOW INITIATE SHORT-RANGE DISCHARGE USING [SPACEBAR].",
+      "CORE STABILITY COMPROMISED. FORCING RE-SYNC... STAND BY.",
+      "DIRECT LINK ACTIVE. THE TERMINAL IS NOW OPEN. TYPE 'MOVE' TO PROVIDE VECTORS, 'ATTACK' to fight",
+      "TARGET ACQUIRED. TYPE 'ATTACK' TO COMMENCE FINAL PURGE.",
+      "HOSTILE UNIT STABILITY CRITICAL. FINISH IT.",
+      "COMBAT DATA LOGGED. INITIATING ASCENSION TO CORE SECTOR SECTOR_01..."
+    ];
+    return messages[tutStep] || "";
+  };
+
   useEffect(() => {
     if (appState !== APP_STATES.PLAYING || isGameOver || isGameWon) return;
     const canvas = canvasRef.current;
@@ -729,7 +814,8 @@ const App = () => {
       });
 
       if (gameMode === 'CHAT' && chatStartTimeRef.current !== 0) {
-        if (Date.now() - chatStartTimeRef.current > 20000) {
+        const isTutorial = floor === 0;
+        if (!isTutorial && Date.now() - chatStartTimeRef.current > 20000) {
           transitionToNormal('MAX SYNC TOLERANCE REACHED. REBOOTING HERO LINK.');
           chatStartTimeRef.current = 0;
         }
@@ -752,6 +838,13 @@ const App = () => {
         if (p.vy) p.y += p.vy;
       });
       s.particles = s.particles.filter(p => p.life > 0);
+
+      // --- TUTORIAL INVINCIBILITY (PHASE 1 PROTECTION) ---
+      if (floor === 0 && tutStep < 6) {
+        s.enemies.forEach(e => {
+          if (e.name === 'TRAINING_DUMMY') e.hp = 100; // Lock HP
+        });
+      }
       
       // --- NEURAL SYNC TRANSITION (NORMAL -> CHAT) ---
       if (gameMode === 'NORMAL' && s.stabilityProgress >= STABILITY_THRESHOLD) {
@@ -974,6 +1067,7 @@ const App = () => {
 
       <div className="flex-1 relative z-10 cursor-crosshair overflow-hidden">
         <canvas ref={canvasRef} width={window.innerWidth} height={window.innerHeight} className="block w-full h-full object-cover" />
+        {floor === 0 && <Subtitles message={getTutorialMessage()} onSkip={skipTutorial} />}
       </div>
 
       <div className="w-full h-[110px] bg-[#030303]/95 backdrop-blur-3xl border-t border-gray-800/50 flex items-center px-12 gap-12 z-30 shadow-[0_-30px_60px_rgba(0,0,0,0.8)]">
