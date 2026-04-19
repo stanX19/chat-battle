@@ -10,6 +10,8 @@
 
 The idea came from a simple thought: what if we add LLM to games? And here it goes—you progress in levels, collect blades, and make use of the rogue mode to eliminate your enemies!
 
+[![Chat Battle Demo](https://img.youtube.com/vi/M1143WuAfK4/maxresdefault.jpg)](https://youtu.be/M1143WuAfK4)
+
 ---
 
 ## ⚠️ MANDATORY: Neural Link Setup (LLM Setup)
