@@ -154,7 +154,8 @@ export function drawEntities(ctx, state, camera, time, gameMode) {
       ctx.stroke();
       ctx.fill();
     } else if (w.type === 'blade') {
-       drawTriangleBlade(ctx, 0, 0, Math.atan2(w.vy, w.vx), 12, '#0f0', '#0f0', (w.shapeTime || time/100));
+       const bladeColor = w.source === 'player' ? '#0f0' : '#f0f';
+       drawTriangleBlade(ctx, 0, 0, Math.atan2(w.vy, w.vx), 12, bladeColor, bladeColor, (w.shapeTime || time/100));
     } else {
       // SPINNING PROJECTILE
       ctx.rotate(time / 150);
@@ -793,6 +794,47 @@ export function render(ctx, state, width, height, gameMode, time) {
   }
 
   drawScreenFlash(ctx, state, width, height);
+  
+  // 5. LOW HP WARNING (Red Tint)
+  drawLowHPWarning(ctx, state, width, height, time);
+
+  // 6. FADE TRANSITION OVERLAY
+  drawFadeOverlay(ctx, state, width, height);
+}
+
+function drawLowHPWarning(ctx, state, width, height, time) {
+  const h = state.hero;
+  const hpRatio = h.hp / h.maxHp;
+  if (hpRatio < 0.3) {
+    const intensity = (0.3 - hpRatio) / 0.3;
+    const alpha = (0.2 + Math.sin(time / 200) * 0.1) * intensity;
+    
+    ctx.save();
+    const grad = ctx.createRadialGradient(width/2, height/2, width/4, width/2, height/2, width/1.1);
+    grad.addColorStop(0, 'rgba(255, 0, 0, 0)');
+    grad.addColorStop(1, `rgba(255, 0, 0, ${alpha * 0.8})`);
+    
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, width, height);
+    
+    // Subtle red border flicker
+    if (Math.random() > 0.9) {
+       ctx.strokeStyle = `rgba(255, 0, 0, ${alpha})`;
+       ctx.lineWidth = 4;
+       ctx.strokeRect(0, 0, width, height);
+    }
+    ctx.restore();
+  }
+}
+
+function drawFadeOverlay(ctx, state, width, height) {
+  if (state.fadeAmount > 0) {
+    ctx.save();
+    ctx.globalAlpha = state.fadeAmount;
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, width, height);
+    ctx.restore();
+  }
 }
 
 export function drawTriangleBlade(ctx, x, y, angle, size, color, glowColor, transformFactor = 0) {

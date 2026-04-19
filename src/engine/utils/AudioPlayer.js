@@ -12,6 +12,7 @@ class AudioPlayer {
     this.musicVolume = 0.45;
     this.sfxVolume = 0.8;
     this.ttsVolume = 0.75;
+    this.globalRate = 1.0;
 
     this.soundInstances = new Map();
     this.lastPlayedAt = new Map();
@@ -168,6 +169,13 @@ class AudioPlayer {
         cooldownMs: 400,
         maxConcurrent: 1,
         rateJitter: 0
+      },
+      boss_reflect: {
+        src: toAssetUrl('impactMetal_002.ogg'),
+        baseVolume: 0.7,
+        cooldownMs: 50,
+        maxConcurrent: 5,
+        rateJitter: 0.1
       }
     };
 
@@ -235,7 +243,7 @@ class AudioPlayer {
 
     const jitter = def.rateJitter ?? 0;
     const baseRate = opts.baseRate ?? 1;
-    const rate = Math.max(0.5, Math.min(2, baseRate + (Math.random() * 2 - 1) * jitter));
+    const rate = Math.max(0.1, Math.min(2, (baseRate + (Math.random() * 2 - 1) * jitter) * this.globalRate));
     howl.rate(rate);
 
     const soundId = howl.play();
@@ -301,6 +309,14 @@ class AudioPlayer {
     return pool[0] || null;
   }
 
+  setGlobalRate(rate) {
+    this.globalRate = Math.max(0.1, Math.min(2.0, rate));
+    // Update currently playing music if any (though music is disabled, good practice)
+    if (this.currentMusicHowl) {
+      this.currentMusicHowl.rate(this.globalRate);
+    }
+  }
+
   speak(text, opts = {}) {
     if (!text || typeof window === 'undefined' || !window.speechSynthesis) return;
     const cleanText = String(text).trim();
@@ -320,8 +336,8 @@ class AudioPlayer {
     const utter = new SpeechSynthesisUtterance(sanitized.slice(0, 220));
     const voice = this.selectVoice();
     if (voice) utter.voice = voice;
-    utter.pitch = opts.pitch ?? 0.45;
-    utter.rate = opts.rate ?? 1.12;
+    utter.pitch = (opts.pitch ?? 0.45) * this.globalRate;
+    utter.rate = (opts.rate ?? 1.12) * this.globalRate;
     utter.volume = Math.max(0, Math.min(1, opts.volume ?? this.ttsVolume));
 
     this.speechBusy = true;

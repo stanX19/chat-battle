@@ -161,7 +161,7 @@ function initializeWorld(floor = 1, stats = { atk: 10, def: 0, maxHp: 100 }, wea
         materials: [],
         attackCd: 0, bladeAttackCd: 0, attackTimer: 0, isAttacking: false,
         weapon, trapApproved: false, awaitingConfirmation: false,
-        killsInSession: 0, lastAttackerId: null
+        killsInSession: 0, lastAttackerId: null, lastHitTime: 0
       },
       sidekick: {
         pos: { x: 1 * CELL_SIZE + CELL_SIZE/2, y: 1 * CELL_SIZE + CELL_SIZE/2 },
@@ -185,10 +185,11 @@ function initializeWorld(floor = 1, stats = { atk: 10, def: 0, maxHp: 100 }, wea
       glitchIntensity: 0,
       stabilityProgress: 0,
       cameraShake: 0,
-      uiDrift: { x: 0, y: 0 },
-      minimapCache: null,
-      screenFlash: { intensity: 0, text: '', color: '#00ffff' },
-      inputState: { w: false, a: false, s: false, d: false, space: false }
+      inputState: { w: false, a: false, s: false, d: false, space: false },
+      fadeAmount: 0,
+      timeScale: 1.0,
+      isEnding: false,
+      endingType: null // 'win' or 'loss'
     };
 }
 
@@ -665,12 +666,13 @@ const App = () => {
              if (dmg > 0) {
                audioPlayer.playSound('hero_hit', { volumeScale: Math.min(1.35, 0.85 + dmg / 20) });
              }
-             s.hero.hp = Math.max(0, (s.hero.hp || 100) - reduced);
-             // Activate sidekick protection visual effect in CHAT mode
-             if (gameMode === 'CHAT') {
-                s.hero.protectionTimer = 45; // approx 0.75 s at 60 fps
-             }
-            setHealth(s.hero.hp);
+              s.hero.hp = Math.max(0, (s.hero.hp || 100) - reduced);
+              s.hero.lastHitTime = Date.now();
+              // Activate sidekick protection visual effect in CHAT mode
+              if (gameMode === 'CHAT') {
+                 s.hero.protectionTimer = 45; // approx 0.75 s at 60 fps
+              }
+             setHealth(s.hero.hp);
 
             if (settings.showDamageNumbers && reduced > 0) {
               s.particles.push({
@@ -695,12 +697,12 @@ const App = () => {
               });
             }
 
-            if (s.hero.hp <= 0) {
-              if (reduced > 0) setDeathCause(source);
-              Howler.stop();
-              audioPlayer.playRandomSound(['loss_emotional_damage', 'loss_fahhh'], { groupKey: 'loss' });
-              setIsGameOver(true);
-              setAppState(APP_STATES.GAMEOVER);
+            if (s.hero.hp <= 0 && !s.isEnding) {
+               if (reduced > 0) setDeathCause(source);
+               Howler.stop();
+               audioPlayer.playRandomSound(['loss_emotional_damage', 'loss_fahhh'], { groupKey: 'loss' });
+               s.isEnding = true;
+               s.endingType = 'loss';
             }
 
             // PROPORTIONAL BLADE DROP
@@ -731,30 +733,6 @@ const App = () => {
              s.hero.hp = Math.min(s.hero.maxHp || 100, (s.hero.hp || 100) + 20);
              setHealth(s.hero.hp);
            }
-           /* else if (item === 'Score Boost') {
-             audioPlayer.playSound('pickup_score');
-             setTotalScore(sc => sc + 100);
-             setDataFragments(df => df + 100);
-           }
-            else if (item === 'Logic Hack') {
-              audioPlayer.playSound('pickup_logic');
-              setGlitchValue(v => Math.max(0, v - 30));
-            }
-            else if (item === 'Attack Core') {
-              audioPlayer.playSound('pickup_core');
-              setPersistentStats(prev => ({ ...prev, atk: prev.atk + 5 }));
-            }
-            else if (item === 'Defense Plate') {
-              audioPlayer.playSound('pickup_defense');
-              setPersistentStats(prev => ({ ...prev, def: prev.def + 2 }));
-            }
-            else if (item === 'Vitality Mesh') setPersistentStats(prev => {
-                audioPlayer.playSound('pickup_vitality');
-                const nhp = prev.hp + 20;
-                const nmax = prev.maxHp + 20;
-                return { ...prev, hp: nhp, maxHp: nmax };
-            });
-            */
             else if (item === 'Pulse Rifle') {
               audioPlayer.playSound('pickup_weapon');
               setEquippedWeapon('PULSE_RIFLE');
@@ -775,12 +753,14 @@ const App = () => {
                 });
             }
         },
-        onWin: () => {
-          Howler.stop();
-          audioPlayer.playRandomSound(['victory_why_you_so_pro', 'victory_congratulations'], { groupKey: 'victory' });
-          setIsGameWon(true);
-          goToNextFloor();
-        }
+         onWin: () => {
+           const s = engineState.current;
+           if (!s || s.isEnding) return;
+           Howler.stop();
+           audioPlayer.playRandomSound(['victory_why_you_so_pro', 'victory_congratulations'], { groupKey: 'victory' });
+           s.isEnding = true;
+           s.endingType = 'win';
+         }
     };
 
     const loop = () => {
@@ -833,11 +813,41 @@ const App = () => {
          s.minimapCache = null; 
       }
 
-      // --- Engine Lifecycle Ticks ---
-      if (h.invuln > 0) h.invuln--;
-      if (h.attackCd > 0) h.attackCd--;
-      if (h.bladeAttackCd > 0) h.bladeAttackCd--;
-      s.enemies.forEach(e => { if (e.invuln > 0) e.invuln--; });
+       // --- Engine Lifecycle Ticks ---
+       if (h.invuln > 0) h.invuln--;
+       if (h.attackCd > 0) h.attackCd--;
+       if (h.bladeAttackCd > 0) h.bladeAttackCd--;
+
+       // HP REGEN: 1% PER SECOND AFTER 10s OUT OF COMBAT
+       if (h.hp < h.maxHp && Date.now() - (h.lastHitTime || 0) > 10000 && !s.isEnding) {
+          h.hp = Math.min(h.maxHp, h.hp + (h.maxHp * 0.01 / 60));
+          setHealth(h.hp);
+       }
+
+       // FADE TRANSITION LOGIC (3s Slow-Mo + White Out)
+       if (s.isEnding) {
+          s.fadeAmount = Math.min(1.0, s.fadeAmount + (1 / 180)); // 3 seconds at 60fps
+          
+          // Cinematic Slow-mo: Ease from 1.0 down to 0.05
+          s.timeScale = Math.max(0.05, 1.0 - (s.fadeAmount * 0.95));
+          audioPlayer.setGlobalRate(s.timeScale);
+
+          if (s.fadeAmount >= 1.0) {
+             if (s.endingType === 'win') {
+                setIsGameWon(true);
+                goToNextFloor();
+             } else {
+                setIsGameOver(true);
+                setAppState(APP_STATES.GAMEOVER);
+             }
+             s.isEnding = false; // Prevent multiple triggers
+             audioPlayer.setGlobalRate(1.0); // Reset for next screen
+          }
+       } else {
+          s.timeScale = 1.0;
+       }
+
+       s.enemies.forEach(e => { if (e.invuln > 0) e.invuln--; });
       s.particles.forEach(p => { 
         if (p.life > 0) p.life--;
         if (p.vx) p.x += p.vx;

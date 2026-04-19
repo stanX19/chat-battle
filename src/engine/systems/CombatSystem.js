@@ -407,24 +407,24 @@ export function processAttack(state) {
      
      if (h.weapon === 'NANO_BLADE') {
         if (dist < 60) {
-           if (!h.attackCd || h.attackCd <= 0) {
-              const damage = 15 + (h.atk || 0);
-              state.weapons.push({ type: 'melee_sweep', x: (h.pos.x + target.x)/2, y: (h.pos.y + target.y)/2, radius: 45, life: 8, damage, source: 'player' });
-              audioPlayer.playSound('attack_blade');
-              h.attackCd = 25;
-           }
+            if (!h.attackCd || h.attackCd <= 0) {
+               const damage = 15 + (h.atk || 0);
+               state.weapons.push({ type: 'melee_sweep', x: (h.pos.x + target.x)/2, y: (h.pos.y + target.y)/2, radius: 45, life: 8, damage, source: 'player' });
+               audioPlayer.playSound('attack_blade');
+               h.attackCd = SPACE_ATTACK_CD; // Standardized to 40
+            }
         } else {
            executeHeroRoute(h, { x: target.x, y: target.y }, state, true);
         }
      } else if (h.weapon === 'PULSE_RIFLE') {
         if (dist < 400) {
-           if (!h.attackCd || h.attackCd <= 0) {
-              const damage = 8 + Math.floor((h.atk || 0) * 0.6);
-              state.weapons.push({ type: 'projectile', x: h.pos.x, y: h.pos.y, vx: Math.cos(angle)*7, vy: Math.sin(angle)*7, radius: 6, life: 60, damage, source: 'player' });
-              audioPlayer.playSound('attack_pulse');
-              h.attackCd = 12; 
-              state.particles.push({ x: h.pos.x, y: h.pos.y, vx: Math.cos(angle)*3, vy: Math.sin(angle)*3, life: 20, type: 'heat_trail', radius: 4 });
-           }
+            if (!h.attackCd || h.attackCd <= 0) {
+               const damage = 8 + Math.floor((h.atk || 0) * 0.6);
+               state.weapons.push({ type: 'projectile', x: h.pos.x, y: h.pos.y, vx: Math.cos(angle)*7, vy: Math.sin(angle)*7, radius: 6, life: 60, damage, source: 'player' });
+               audioPlayer.playSound('attack_pulse');
+               h.attackCd = 24; // Increased from 12 to ensure cadence
+               state.particles.push({ x: h.pos.x, y: h.pos.y, vx: Math.cos(angle)*3, vy: Math.sin(angle)*3, life: 20, type: 'heat_trail', radius: 4 });
+            }
         } else {
            executeHeroRoute(h, { x: target.x, y: target.y }, state, true);
         }
@@ -535,6 +535,29 @@ export function resolveCombatTicks(state, isWallSolid, callbacks, gameMode) {
           enemies.forEach(e => {
              if (e.invuln > 0) return;
              if (Math.hypot(e.x - w.x, e.y - w.y) < w.radius + e.radius) {
+                 // --- BOSS RAMPAGE REFLECTION FEAT ---
+                 const isBossRampage = e.type === 'BOSS' && e.phase2StartTime && (Date.now() - e.phase2StartTime < 15000);
+                 if (isBossRampage && w.type === 'blade') {
+                     const dist = Math.hypot(w.x - e.x, w.y - e.y) || 1;
+                     const nx = (w.x - e.x) / dist;
+                     const ny = (w.y - e.y) / dist;
+                     const dot = w.vx * nx + w.vy * ny;
+                     
+                     // Physics accurate bounce: v' = v - 2(v.n)n
+                     w.vx = (w.vx - 2 * dot * nx) * 1.1;
+                     w.vy = (w.vy - 2 * dot * ny) * 1.1;
+                     
+                     w.source = 'enemy';
+                     w.sourceEntityId = e.id;
+                     w.isHoming = false;
+                     w.targetId = null;
+                     w.damage = 20;
+                     
+                     state.glitchIntensity = Math.max(state.glitchIntensity || 0, 0.4);
+                     audioPlayer.playSound('boss_reflect');
+                     return; // Skip damage processing for this enemy
+                 }
+
                  e.hp -= w.damage;
                 audioPlayer.playSound('enemy_hit');
                  e.invuln = 10;
