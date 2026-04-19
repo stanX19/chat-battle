@@ -852,7 +852,7 @@ const App = () => {
       s.particles = s.particles.filter(p => p.life > 0);
 
       // --- TUTORIAL INVINCIBILITY (PHASE 1 PROTECTION) ---
-      if (floor === 0 && tutStep < 6) {
+      if (floor === 0 && tutStep < 3) {
         s.enemies.forEach(e => {
           if (e.name === 'TRAINING_DUMMY') e.hp = 100; // Lock HP
         });
