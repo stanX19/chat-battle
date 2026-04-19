@@ -157,6 +157,7 @@ export function executeHeroRoute(h, target, state, avoidTraps = false) {
 
 export function executeEnemyRoute(e, targetPos, state) {
    const dist = Math.hypot(targetPos.x - e.x, targetPos.y - e.y);
+   const ts = state.timeScale || 1.0;
    if (dist > CELL_SIZE * 1.5) {
       if (Date.now() - (e.lastPathCalc || 0) > 600 || !e.path || e.path.length === 0) {
          const sc = getGridPos(e.x, e.y);
@@ -169,15 +170,15 @@ export function executeEnemyRoute(e, targetPos, state) {
          const wpDist = Math.hypot(wp.px - e.x, wp.py - e.y);
          if (wpDist < 15) e.path.shift();
          else {
-            e.x += ((wp.px - e.x) / wpDist) * e.speed;
-            e.y += ((wp.py - e.y) / wpDist) * e.speed;
+            e.x += ((wp.px - e.x) / wpDist) * e.speed * ts;
+            e.y += ((wp.py - e.y) / wpDist) * e.speed * ts;
             return;
          }
       }
    }
    if (dist > 5) {
-      e.x += ((targetPos.x - e.x) / dist) * e.speed;
-      e.y += ((targetPos.y - e.y) / dist) * e.speed;
+      e.x += ((targetPos.x - e.x) / dist) * e.speed * ts;
+      e.y += ((targetPos.y - e.y) / dist) * e.speed * ts;
    }
 }
 
@@ -639,17 +640,19 @@ export function resolveCombatTicks(state, isWallSolid, callbacks, gameMode) {
            }
         }
         
-        w.x += w.vx; w.y += w.vy;
+        const ts = state.timeScale || 1.0;
+        w.x += w.vx * ts; w.y += w.vy * ts;
         if (w.type === 'blade') {
-           w.shapeTime = (w.shapeTime || 0) + 0.1;
+           w.shapeTime = (w.shapeTime || 0) + 0.1 * ts;
         }
      }
   }
 
   for (let i = enemies.length - 1; i >= 0; i--) {
      const e = enemies[i];
-     if (e.invuln > 0) e.invuln--;
-     if (e.attackCd > 0) e.attackCd--;
+     const ts = state.timeScale || 1.0;
+     if (e.invuln > 0) e.invuln -= ts;
+     if (e.attackCd > 0) e.attackCd -= ts;
 
      if (e.hp <= 0) {
          callbacks.onScore(e.type === 'BOSS' ? 1000 : 50);

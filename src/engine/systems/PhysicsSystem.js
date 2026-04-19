@@ -77,7 +77,8 @@ export function applyPhysics(state, options) {
      state.visited[cy][cx] = true;
   }
 
-  hero.vel.x += hero.acc.x; hero.vel.y += hero.acc.y;
+  const ts = state.timeScale || 1.0;
+  hero.vel.x += hero.acc.x * ts; hero.vel.y += hero.acc.y * ts;
   const speed = Math.hypot(hero.vel.x, hero.vel.y);
   
   // Update Stability Progress based on distance moved
@@ -93,10 +94,10 @@ export function applyPhysics(state, options) {
     hero.vel.x = (hero.vel.x/speed)*currentMax;
     hero.vel.y = (hero.vel.y/speed)*currentMax;
   }
-  hero.pos.x += hero.vel.x;
-  hero.pos.y += hero.vel.y;
+  hero.pos.x += hero.vel.x * ts;
+  hero.pos.y += hero.vel.y * ts;
   hero.acc.x = 0; hero.acc.y = 0;
-  hero.vel.x *= 0.95; hero.vel.y *= 0.95;
+  hero.vel.x *= Math.pow(0.95, ts); hero.vel.y *= Math.pow(0.95, ts);
 
   // --- SIDEKICK PHYSICS ---
   if (sidekick) {
@@ -110,15 +111,15 @@ export function applyPhysics(state, options) {
       if (sidekick.state === 'FOLLOW') {
         if (distToHero > SIDEKICK_FOLLOW_DIST) {
           const angle = Math.atan2(hero.pos.y - sidekick.pos.y, hero.pos.x - sidekick.pos.x);
-          sidekick.vel.x += Math.cos(angle) * 0.5;
-          sidekick.vel.y += Math.sin(angle) * 0.5;
+          sidekick.vel.x += Math.cos(angle) * 0.5 * ts;
+          sidekick.vel.y += Math.sin(angle) * 0.5 * ts;
         }
       } else if (sidekick.state === 'SCAVENGE' && sidekick.targetPos) {
         const distToTarget = Math.hypot(sidekick.targetPos.x - sidekick.pos.x, sidekick.targetPos.y - sidekick.pos.y);
         if (distToTarget > 5) {
           const angle = Math.atan2(sidekick.targetPos.y - sidekick.pos.y, sidekick.targetPos.x - sidekick.pos.x);
-          sidekick.vel.x += Math.cos(angle) * 0.8;
-          sidekick.vel.y += Math.sin(angle) * 0.8;
+          sidekick.vel.x += Math.cos(angle) * 0.8 * ts;
+          sidekick.vel.y += Math.sin(angle) * 0.8 * ts;
         } else {
           sidekick.state = 'FOLLOW';
           sidekick.targetPos = null;
@@ -131,10 +132,10 @@ export function applyPhysics(state, options) {
       sidekick.vel.x = (sidekick.vel.x/skSpeed) * SIDEKICK_SPEED;
       sidekick.vel.y = (sidekick.vel.y/skSpeed) * SIDEKICK_SPEED;
     }
-    sidekick.pos.x += sidekick.vel.x;
-    sidekick.pos.y += sidekick.vel.y;
-    sidekick.vel.x *= 0.92;
-    sidekick.vel.y *= 0.92;
+    sidekick.pos.x += sidekick.vel.x * ts;
+    sidekick.pos.y += sidekick.vel.y * ts;
+    sidekick.vel.x *= Math.pow(0.92, ts);
+    sidekick.vel.y *= Math.pow(0.92, ts);
   }
 
   if (isWallSolid) {
@@ -197,7 +198,8 @@ export function updateBladePhysics(state) {
     if (m.vy === undefined) m.vy = 0;
     if (m.shapeTime === undefined) m.shapeTime = Math.random() * 100;
 
-    m.shapeTime += 0.05;
+    const ts = state.timeScale || 1.0;
+    m.shapeTime += 0.05 * ts;
 
     if (m.state === 'ORBIT') {
       let anchorX, anchorY;
@@ -232,14 +234,14 @@ export function updateBladePhysics(state) {
       const inertiaX = hVel.x * 0.2;
       const inertiaY = hVel.y * 0.2;
 
-      m.vx += (dx * k) + inertiaX;
-      m.vy += (dy * k) + inertiaY;
+      m.vx += ((dx * k) + inertiaX) * ts;
+      m.vy += ((dy * k) + inertiaY) * ts;
       
-      m.vx *= damping;
-      m.vy *= damping;
+      m.vx *= Math.pow(damping, ts);
+      m.vy *= Math.pow(damping, ts);
       
-      m.x += m.vx;
-      m.y += m.vy;
+      m.x += m.vx * ts;
+      m.y += m.vy * ts;
     }
   });
 }

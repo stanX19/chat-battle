@@ -831,7 +831,7 @@ function drawFadeOverlay(ctx, state, width, height) {
   if (state.fadeAmount > 0) {
     ctx.save();
     ctx.globalAlpha = state.fadeAmount;
-    ctx.fillStyle = '#000';
+    ctx.fillStyle = '#fff';
     ctx.fillRect(0, 0, width, height);
     ctx.restore();
   }

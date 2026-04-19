@@ -184,7 +184,9 @@ function initializeWorld(floor = 1, stats = { atk: 10, def: 0, maxHp: 100 }, wea
       CELL_SIZE,
       glitchIntensity: 0,
       stabilityProgress: 0,
-      cameraShake: 0,
+      uiDrift: { x: 0, y: 0 },
+      minimapCache: null,
+      screenFlash: { intensity: 0, text: '', color: '#00ffff' },
       inputState: { w: false, a: false, s: false, d: false, space: false },
       fadeAmount: 0,
       timeScale: 1.0,
@@ -826,7 +828,7 @@ const App = () => {
 
        // FADE TRANSITION LOGIC (3s Slow-Mo + White Out)
        if (s.isEnding) {
-          s.fadeAmount = Math.min(1.0, s.fadeAmount + (1 / 180)); // 3 seconds at 60fps
+          s.fadeAmount = Math.min(1.0, s.fadeAmount + (1 / (60 * 7))); // 3 seconds at 60fps
           
           // Cinematic Slow-mo: Ease from 1.0 down to 0.05
           s.timeScale = Math.max(0.05, 1.0 - (s.fadeAmount * 0.95));
