@@ -188,113 +188,90 @@ export function processExplore(state) {
 
   const [hx, hy] = getGridPos(h.pos.x, h.pos.y);
 
-  if (!h.targetPos || h.path.length === 0 || Date.now() - h.lastPathCalc > 1000) {
+  // --- TARGET SELECTION / RE-CALCULATION ---
+  // We recalculate if we have no target, finished our path, or enough time has passed
+  if (!h.targetPos || (h.path && h.path.length === 0) || Date.now() - h.lastPathCalc > 1000) {
      const [hx, hy] = getGridPos(h.pos.x, h.pos.y);
 
-     // PRIORITIZE MATERIALS (Reachable ones only)
+     // 1. PRIORITIZE MATERIALS (Reachable ones only)
      const materials = state.items
         .filter(i => i.type === 'Material')
         .sort((a,b) => Math.hypot(a.x-h.pos.x, a.y-h.pos.y) - Math.hypot(b.x-h.pos.x, b.y-h.pos.y));
 
+     let foundTarget = false;
      for (const best of materials) {
+        // Reachability check
         const path = calculateAStarPath(state.grid, [hx, hy], getGridPos(best.x, best.y), CELL_SIZE);
-        if (path.length > 0) {
+        // We consider it reachable if there is a path OR if we are already in the same cell
+        if (path.length > 0 || (hx === Math.floor(best.x/CELL_SIZE) && hy === Math.floor(best.y/CELL_SIZE))) {
            h.targetPos = { x: best.x, y: best.y };
            h.path = path;
            h.lastPathCalc = Date.now();
-           return;
+           foundTarget = true;
+           break;
         }
      }
 
-     // BFS for NEAREST UNVISITED TILE (Ignore current tile)
-     let queue = [[hx, hy]];
-     let visitedBfs = new Set();
-     let found = null;
-     
-     visitedBfs.add(`${hx},${hy}`); // Don't pick current tile
+     if (!foundTarget) {
+        // 2. BFS for NEAREST UNVISITED TILE
+        let queue = [[hx, hy]];
+        let visitedBfs = new Set();
+        let foundCell = null;
+        visitedBfs.add(`${hx},${hy}`);
 
-     while(queue.length > 0) {
-        const [cx, cy] = queue.shift();
-        
-        // Check neighbors
-        const neighbors = [[cx, cy-1], [cx+1, cy], [cx, cy+1], [cx-1, cy]];
-        for (const [nx, ny] of neighbors) {
-           if (nx < 0 || ny < 0 || nx >= state.grid[0].length || ny >= state.grid.length) continue;
-           if (state.grid[ny][nx] === 1) continue; // Wall
+        while(queue.length > 0) {
+           const [cx, cy] = queue.shift();
+           const neighbors = [[cx, cy-1], [cx+1, cy], [cx, cy+1], [cx-1, cy]];
+           for (const [nx, ny] of neighbors) {
+              if (nx < 0 || ny < 0 || nx >= state.grid[0].length || ny >= state.grid.length) continue;
+              if (state.grid[ny][nx] === 1) continue; 
 
-           const hash = `${nx},${ny}`;
-           if (visitedBfs.has(hash)) continue;
-           visitedBfs.add(hash);
+              const hash = `${nx},${ny}`;
+              if (visitedBfs.has(hash)) continue;
+              visitedBfs.add(hash);
 
-           if (!state.visited[ny][nx]) {
-              found = [nx, ny];
+              if (!state.visited[ny][nx]) {
+                 foundCell = [nx, ny];
+                 break;
+              }
+              queue.push([nx, ny]);
+           }
+           if (foundCell) break;
+        }
+
+        if (foundCell) {
+           h.targetPos = { x: foundCell[0] * CELL_SIZE + CELL_SIZE/2, y: foundCell[1] * CELL_SIZE + CELL_SIZE/2 }; 
+           h.path = []; // executeHeroRoute will verify/recalc path
+           foundTarget = true;
+        }
+     }
+
+     if (!foundTarget) {
+        // 3. FALLBACK: PATROL OFFSET
+        const fallbackOffsets = [[6, 0], [-6, 0], [0, 6], [0, -6]];
+        for (const [dx, dy] of fallbackOffsets) {
+           const fx = Math.max(0, Math.min(state.grid[0].length - 1, hx + dx));
+           const fy = Math.max(0, Math.min(state.grid.length - 1, hy + dy));
+           if (state.grid[fy][fx] === 0) {
+              h.targetPos = { x: fx * CELL_SIZE + CELL_SIZE/2, y: fy * CELL_SIZE + CELL_SIZE/2 };
+              h.path = [];
+              foundTarget = true;
               break;
            }
-           queue.push([nx, ny]);
-        }
-        if (found) break;
-     }
-
-     if (found) {
-        const path = calculateAStarPath(state.grid, [hx, hy], found, CELL_SIZE);
-        if (path.length > 0) {
-           h.path = path;
-           h.lastPathCalc = Date.now();
-           h.targetPos = { x: found[0] * CELL_SIZE + CELL_SIZE/2, y: found[1] * CELL_SIZE + CELL_SIZE/2 }; 
-           return;
         }
      }
 
-     // FALLBACK: PATROL OFFSET
-     const fallbackOffsets = [
-        [6, 0], [-6, 0], [0, 6], [0, -6], [4, 4], [-4, 4], [4, -4], [-4, -4]
-     ];
-
-     for (const [dx, dy] of fallbackOffsets) {
-        const fx = Math.max(0, Math.min(state.grid[0].length - 1, hx + dx));
-        const fy = Math.max(0, Math.min(state.grid.length - 1, hy + dy));
-        if (state.grid[fy][fx] === 1) continue;
-
-        const patrolPath = calculateAStarPath(state.grid, [hx, hy], [fx, fy], CELL_SIZE);
-        if (patrolPath.length > 0) {
-           h.path = patrolPath;
-           h.lastPathCalc = Date.now();
-           h.targetPos = { x: fx * CELL_SIZE + CELL_SIZE / 2, y: fy * CELL_SIZE + CELL_SIZE / 2 };
-           return;
-        }
-     }
-
-     h.order = 'AWAIT';
-     h.path = [];
-  }
-
-  if (h.path && h.path.length > 0) {
-     const wp = h.path[0];
-     
-     // TRAP DETECTION (Hesitation Logic)
-     if (state.grid[wp.gy][wp.gx] === 2 && !h.trapApproved) {
-        h.interruptedOrder = h.order; // Store for explore mode too
-        h.interruptedTargetType = h.targetType;
-        h.interruptedTargetPos = h.targetPos ? { ...h.targetPos } : null;
-
+     if (!foundTarget) {
         h.order = 'AWAIT';
         h.path = [];
-        h.vel = { x: 0, y: 0 };
-        h.acc = { x: 0, y: 0 };
-        h.currentDialogue = "SECTOR CORRUPTION DETECTED. PROCEED AT RISK?";
-        h.dialogueTimer = Date.now();
-        h.awaitingConfirmation = true;
-        return;
+        h.targetPos = null;
      }
+  }
 
-     const dist = Math.hypot(wp.px - h.pos.x, wp.py - h.pos.y);
-     if (dist < 15) {
-        h.path.shift();
-     } else {
-        const force = steering.seek(h, { x: wp.px, y: wp.py });
-        h.acc.x += force.x * HERO_STEER_FORCE;
-        h.acc.y += force.y * HERO_STEER_FORCE;
-     }
+  // --- MOVEMENT EXECUTION ---
+  // Delegate all movement, path following, and trap logic to the unified driver
+  if (h.targetPos) {
+     executeHeroRoute(h, h.targetPos, state, true);
   }
 }
 
